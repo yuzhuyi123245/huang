@@ -1,1 +1,649 @@
-public/index.html
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+
+<meta charset="utf-8">
+
+<meta
+  name="viewport"
+  content="width=device-width,initial-scale=1"
+>
+
+<title>内容查看</title>
+
+<style>
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #202124;
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+.wrap {
+  max-width: 900px;
+  margin: auto;
+  padding: 24px 16px;
+}
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow:
+    0 6px 24px #00000012;
+  margin-bottom: 16px;
+}
+
+.login {
+  max-width: 430px;
+  margin: 12vh auto;
+}
+
+.hidden {
+  display: none;
+}
+
+.muted {
+  color: #777;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+input,
+textarea,
+button {
+  font: inherit;
+  border-radius: 10px;
+  padding: 11px;
+  border: 1px solid #ddd;
+}
+
+input,
+textarea {
+  width: 100%;
+}
+
+textarea {
+  min-height: 150px;
+  resize: vertical;
+}
+
+button {
+  background: #111;
+  color: white;
+  border: 0;
+  cursor: pointer;
+}
+
+.danger {
+  background: #c62828;
+}
+
+.top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  max-height: 600px;
+  border-radius: 12px;
+  margin-top: 12px;
+}
+
+.item {
+  border-top: 1px solid #eee;
+  padding: 18px 0;
+  white-space: pre-wrap;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div
+  id="login"
+  class="wrap login"
+>
+
+  <div class="card">
+
+    <h2>
+      请输入密码
+    </h2>
+
+    <p class="muted">
+      输入访问密码进入相应模式。
+    </p>
+
+    <input
+      id="password"
+      type="password"
+      placeholder="密码"
+      autocomplete="off"
+    >
+
+    <button
+      style="width:100%;margin-top:12px"
+      onclick="login()"
+    >
+      进入
+    </button>
+
+    <p
+      id="error"
+      style="color:#c62828"
+    ></p>
+
+  </div>
+
+</div>
+
+
+<div
+  id="app"
+  class="wrap hidden"
+>
+
+  <div class="card top">
+
+    <div>
+
+      <b id="mode"></b>
+
+      <div
+        class="muted"
+        id="status"
+      >
+        正在连接...
+      </div>
+
+    </div>
+
+    <button
+      onclick="location.reload()"
+    >
+      退出
+    </button>
+
+  </div>
+
+
+  <section
+    id="admin"
+    class="hidden"
+  >
+
+    <div class="card">
+
+      <h2>
+        管理者后台
+      </h2>
+
+      <label>
+        文字内容
+      </label>
+
+      <textarea
+        id="text"
+        placeholder="输入游客要看到的文字"
+      ></textarea>
+
+
+      <label
+        style="display:block;margin-top:14px"
+      >
+        上传图片
+      </label>
+
+      <input
+        id="image"
+        type="file"
+        accept="image/*"
+      >
+
+
+      <div
+        class="row"
+        style="margin-top:12px"
+      >
+
+        <button
+          onclick="saveText()"
+        >
+          保存文字
+        </button>
+
+        <button
+          onclick="uploadImage()"
+        >
+          上传图片
+        </button>
+
+        <button
+          class="danger"
+          onclick="deleteImage()"
+        >
+          删除图片
+        </button>
+
+      </div>
+
+    </div>
+
+  </section>
+
+
+  <div class="card">
+
+    <h2>
+      公开内容
+    </h2>
+
+    <div id="content">
+
+      <p class="muted">
+        加载中...
+      </p>
+
+    </div>
+
+  </div>
+
+</div>
+
+
+<script>
+
+let role = "";
+
+
+async function api(
+  url,
+  options = {}
+) {
+
+  const response =
+    await fetch(
+      url,
+      options
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.error ||
+      "请求失败"
+    );
+
+  }
+
+  return data;
+}
+
+
+function escapeHtml(text) {
+
+  return String(text)
+    .replace(
+      /[&<>"']/g,
+      function (char) {
+
+        return {
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&#39;"
+        }[char];
+
+      }
+    );
+
+}
+
+
+async function login() {
+
+  const password =
+    document
+      .getElementById(
+        "password"
+      )
+      .value;
+
+  try {
+
+    const data =
+      await api(
+        "/api/login",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json"
+          },
+
+          body:
+            JSON.stringify({
+              password
+            })
+        }
+      );
+
+    role = data.role;
+
+    document
+      .getElementById(
+        "login"
+      )
+      .classList
+      .add("hidden");
+
+    document
+      .getElementById(
+        "app"
+      )
+      .classList
+      .remove("hidden");
+
+    document
+      .getElementById(
+        "mode"
+      )
+      .textContent =
+      role === "admin"
+        ? "管理者模式"
+        : "游客模式";
+
+    document
+      .getElementById(
+        "admin"
+      )
+      .classList
+      .toggle(
+        "hidden",
+        role !== "admin"
+      );
+
+    await load();
+
+  } catch (error) {
+
+    document
+      .getElementById(
+        "error"
+      )
+      .textContent =
+      error.message;
+
+  }
+
+}
+
+
+async function load() {
+
+  try {
+
+    const data =
+      await api(
+        "/api/content"
+      );
+
+    document
+      .getElementById(
+        "text"
+      )
+      .value =
+      data.text || "";
+
+
+    let html = "";
+
+
+    if (data.text) {
+
+      html +=
+        "<div class='item'>" +
+        escapeHtml(
+          data.text
+        ) +
+        "</div>";
+
+    }
+
+
+    if (data.image) {
+
+      html +=
+        "<div class='item'>" +
+        "<img src='" +
+        escapeHtml(
+          data.image
+        ) +
+        "' alt='图片'>" +
+        "</div>";
+
+    }
+
+
+    if (!html) {
+
+      html =
+        "<p class='muted'>" +
+        "暂无内容" +
+        "</p>";
+
+    }
+
+
+    document
+      .getElementById(
+        "content"
+      )
+      .innerHTML =
+      html;
+
+
+    document
+      .getElementById(
+        "status"
+      )
+      .textContent =
+      "已连接 · 内容已同步";
+
+  } catch (error) {
+
+    document
+      .getElementById(
+        "status"
+      )
+      .textContent =
+      "连接失败";
+
+  }
+
+}
+
+
+async function saveText() {
+
+  if (role !== "admin")
+    return;
+
+  try {
+
+    await api(
+      "/api/content",
+      {
+        method: "PUT",
+
+        headers: {
+          "Content-Type":
+            "application/json"
+        },
+
+        body:
+          JSON.stringify({
+            text:
+              document
+                .getElementById(
+                  "text"
+                )
+                .value
+          })
+      }
+    );
+
+    await load();
+
+    alert(
+      "文字已保存"
+    );
+
+  } catch (error) {
+
+    alert(
+      error.message
+    );
+
+  }
+
+}
+
+
+async function uploadImage() {
+
+  const file =
+    document
+      .getElementById(
+        "image"
+      )
+      .files[0];
+
+  if (!file) {
+
+    alert(
+      "请选择图片"
+    );
+
+    return;
+  }
+
+
+  if (
+    file.size >
+    8 * 1024 * 1024
+  ) {
+
+    alert(
+      "图片不能超过 8MB"
+    );
+
+    return;
+  }
+
+
+  const form =
+    new FormData();
+
+  form.append(
+    "image",
+    file
+  );
+
+
+  try {
+
+    await api(
+      "/api/image",
+      {
+        method: "POST",
+        body: form
+      }
+    );
+
+    await load();
+
+    alert(
+      "图片已上传"
+    );
+
+  } catch (error) {
+
+    alert(
+      error.message
+    );
+
+  }
+
+}
+
+
+async function deleteImage() {
+
+  if (
+    !confirm(
+      "确定删除当前图片？"
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  try {
+
+    await api(
+      "/api/image",
+      {
+        method: "DELETE"
+      }
+    );
+
+    await load();
+
+  } catch (error) {
+
+    alert(
+      error.message
+    );
+
+  }
+
+}
+
+</script>
+
+</body>
+
+</html>
